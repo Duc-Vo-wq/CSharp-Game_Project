@@ -1,0 +1,322 @@
+MetroidvaniaGame/
+│
+├── Program.cs                    [Entry point - starts the game]
+│   └─ Creates Game instance
+│   └─ Calls Game.Run()
+│
+├── Game.cs                       [Game controller & main loop]
+│   ├─ Shows menu
+│   ├─ Runs game loop (30 FPS)
+│   ├─ Handles keyboard input
+│   ├─ Updates game state
+│   ├─ Renders to screen
+│   └─ Shows game over
+│
+├── Player.cs                     [Player character class]
+│   ├─ Position (X, Y)
+│   ├─ Velocity & physics
+│   ├─ Movement (left, right, jump)
+│   ├─ Abilities (double jump, dash)
+│   ├─ Health & score tracking
+│   └─ Collision detection
+│
+├── World.cs                      [World management]
+│   ├─ Room collection
+│   ├─ Current room tracking
+│   ├─ Room transitions
+│   ├─ Collectible management
+│   └─ Enemy management
+│
+├── Room.cs                       [Room definition]
+│   ├─ Tile layout (2D array)
+│   ├─ Wall/platform detection
+│   ├─ Enemy list
+│   ├─ Collectible list
+│   ├─ Room connections
+│   └─ RoomGenerator (static class)
+│       ├─ CreateStartRoom()
+│       ├─ CreateAbilityRoom()
+│       ├─ CreateChallengeRoom()
+│       └─ CreateBossRoom()
+│
+├── GameObjects.cs                [Game entities]
+│   ├─ Enemy class
+│   │   ├─ Types: Walker, Flyer, Boss
+│   │   ├─ AI behaviors
+│   │   ├─ Health
+│   │   └─ Movement
+│   └─ Collectible class
+│       ├─ Types: Health, DoubleJump, Dash, Coin
+│       └─ Sprites
+│
+├── Renderer.cs                   [Graphics rendering]
+│   ├─ Buffer system (no flicker)
+│   ├─ Room rendering
+│   ├─ Entity rendering
+│   ├─ HUD display
+│   ├─ Menu screen
+│   └─ Game over screen
+│
+├── MetroidvaniaGame.csproj       [Build configuration]
+│   └─ .NET 6.0 project settings
+│
+└── Documentation/
+    ├── README.md                 [Complete documentation]
+    ├── QUICKSTART.md             [Getting started guide]
+    ├── CUSTOMIZATION.md          [Easy modifications]
+    ├── ARCHITECTURE.md           [Code structure explained]
+    ├── SUMMARY.md                [Project overview]
+    ├── TROUBLESHOOTING.md        [Problem solving]
+    └── FILE_STRUCTURE.txt        [This file!]
+
+
+DATA FLOW:
+─────────
+
+Input → Game → Player/World → Update → Render
+  ↓                              ↓        ↓
+Keyboard                      Physics   Buffer
+Presses                       Enemies   Screen
+                              Items
+
+
+GAME LOOP (30 times per second):
+────────────────────────────────
+
+1. HandleInput()
+   └─ Read keyboard
+   └─ Call player methods
+
+2. Update(deltaTime)
+   ├─ Player.Update()
+   │  └─ Apply physics
+   │  └─ Check collisions
+   ├─ World.CheckRoomTransition()
+   │  └─ Change rooms if at edge
+   ├─ World.CheckCollectibles()
+   │  └─ Pick up items
+   └─ World.UpdateEnemies()
+      └─ Move enemies
+      └─ Check player collision
+
+3. Render()
+   ├─ Clear buffer
+   ├─ Draw room
+   ├─ Draw entities
+   ├─ Draw player
+   ├─ Draw HUD
+   └─ Update screen
+
+
+OBJECT RELATIONSHIPS:
+────────────────────
+
+Game
+ ├─► Player (controls)
+ ├─► World (queries)
+ │    ├─► Room (current)
+ │    │    ├─► Enemy[] (many)
+ │    │    └─► Collectible[] (many)
+ │    └─► Room Dictionary (all)
+ └─► Renderer (uses all)
+
+
+IMPORTANT CONSTANTS:
+───────────────────
+
+Player.cs:
+  GRAVITY = 25f          // Fall speed
+  MOVE_SPEED = 12f       // Walk speed
+  JUMP_FORCE = 12f       // Jump power
+  DASH_SPEED = 25f       // Dash velocity
+  MAX_FALL_SPEED = 20f   // Terminal velocity
+
+Game.cs:
+  TARGET_FPS = 30        // Frame rate
+  FRAME_TIME_MS = 33     // Milliseconds per frame
+
+Room.cs:
+  Width = 60             // Room width
+  Height = 20            // Room height
+
+Renderer.cs:
+  bufferWidth = 80       // Screen width
+  bufferHeight = 25      // Screen height
+
+
+GAME MAP:
+────────
+
+        [Room 2]
+     (Ability Room)
+    Double Jump (^)
+           |
+           | (up/down)
+           |
+[Room 0]──────[Room 1]──────[Room 3]
+ (Start)  (left/right)  (Challenge)  (left/right)  (Boss)
+  Enemy           Dash (»)                Boss (B)
+ Health (♥)       Enemies               
+
+
+CONTROLS REFERENCE:
+──────────────────
+
+Movement:
+  WASD or Arrow Keys  - Move left/right
+  Space / W / Up      - Jump
+  Shift               - Dash (when unlocked)
+
+Game:
+  Enter              - Start game
+  R                  - Restart
+  Q / ESC            - Quit
+
+
+SPRITE LEGEND:
+─────────────
+
+Player:
+  @        Normal
+  → / ←    Dashing
+
+Terrain:
+  █        Solid wall
+  =        Platform
+  (space)  Empty air
+
+Enemies:
+  M        Walker (patrols)
+  F        Flyer (wave pattern)
+  B        Boss (slow movement)
+
+Collectibles:
+  ♥        Health pickup
+  ^        Double Jump ability
+  »        Dash ability
+  o        Coin
+
+
+KEY METHODS BY FILE:
+───────────────────
+
+Program.cs:
+  Main()                 - Entry point
+
+Game.cs:
+  Run()                  - Initialize game
+  GameLoop()             - Main loop
+  HandleInput()          - Process keys
+  Update(dt)             - Update state
+  Render()               - Draw frame
+
+Player.cs:
+  MoveLeft/Right()       - Movement
+  Jump()                 - Jump/double jump
+  Dash()                 - Dash ability
+  Update(dt, room)       - Physics/collision
+  TakeDamage(amount)     - Receive damage
+
+World.cs:
+  CreateWorld()          - Build map
+  GetCurrentRoom()       - Current room
+  CheckRoomTransition()  - Change rooms
+  CheckCollectibles()    - Pick up items
+  UpdateEnemies()        - Enemy logic
+
+Room.cs:
+  IsWall(x, y)          - Check collision
+  GetTile(x, y)         - Get tile char
+  SetTile(x, y, c)      - Place tile
+  RoomGenerator.*       - Create rooms
+
+Enemy:
+  Update(dt, room)      - Move enemy
+  UpdateWalker()        - Walker AI
+  UpdateFlyer()         - Flyer AI
+  UpdateBoss()          - Boss AI
+
+Renderer:
+  Render()              - Main render
+  DrawRoom()            - Draw level
+  DrawHUD()             - Draw UI
+  DrawMenu()            - Title screen
+  DrawGameOver()        - End screen
+
+
+EXTENSION POINTS:
+────────────────
+
+Easy to add:
+  ✓ New rooms           (RoomGenerator)
+  ✓ New enemies         (EnemyType enum)
+  ✓ New collectibles    (CollectibleType enum)
+  ✓ New abilities       (Player properties)
+  ✓ More health         (MaxHealth value)
+  ✓ Different speeds    (constants)
+
+Medium difficulty:
+  ⚡ Projectiles         (new class)
+  ⚡ Moving platforms    (Room update)
+  ⚡ Save/Load           (file I/O)
+  ⚡ Sound effects       (Console.Beep)
+  ⚡ Color text          (Console.ForegroundColor)
+
+Advanced:
+  ⚡⚡ Map system         (visited rooms)
+  ⚡⚡ Inventory system   (item list)
+  ⚡⚡ Shop/currency      (buy abilities)
+  ⚡⚡ Boss patterns      (attack phases)
+  ⚡⚡ Procedural gen     (random rooms)
+
+
+BUILD COMMANDS:
+──────────────
+
+  dotnet run            Build and run game
+  dotnet build          Build only
+  dotnet clean          Clean build files
+  dotnet publish        Create release build
+
+
+TOTAL PROJECT SIZE:
+──────────────────
+
+Code Files: 8
+Documentation: 7
+Total Lines: ~1,500
+Functions: 50+
+Classes: 7
+Enums: 3
+
+DEVELOPMENT TIME ESTIMATE:
+─────────────────────────
+
+Foundation (provided):  Done!
+Understanding code:     1-2 hours
+Basic customization:    1-2 hours
+Adding content:         3-5 hours
+New features:           5-10 hours
+Polish/testing:         2-3 hours
+───────────────────────────────
+Total project time:     12-22 hours
+
+
+REQUIREMENTS CHECKLIST:
+──────────────────────
+
+✓ Keyboard input (WASD, arrows, etc.)
+✓ Start menu/prompt
+✓ Game over screen with score
+✓ Dynamic real-time updates
+✓ Playable boundaries
+✓ Multiple actions (move, jump, dash)
+✓ Score tracking
+✓ Game state management
+✓ Restart/quit functionality
+✓ Console-only (no graphics libs)
+✓ Smooth, non-blocking gameplay
+✓ Progress indicators
+✓ Visual feedback
+
+ALL REQUIREMENTS MET! ✓
