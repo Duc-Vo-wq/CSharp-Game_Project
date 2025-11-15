@@ -118,6 +118,12 @@ namespace MetroidvaniaGame
                     case ConsoleKey.UpArrow:
                         player.Jump();
                         break;
+                    case ConsoleKey.F:
+                    case ConsoleKey.K:
+                        // Short range melee attack
+                        if (world != null)
+                            player.Attack(world.GetCurrentRoom());
+                        break;
                     case ConsoleKey.E:
                         player.Dash();
                         break;

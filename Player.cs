@@ -25,6 +25,15 @@ namespace MetroidvaniaGame
         private float dashTime;
         private int dashDirection;
         
+        // Combat
+        private float attackCooldown;
+        private float attackTime;
+        private const float ATTACK_COOLDOWN = 0.5f;
+        private const float ATTACK_DURATION = 0.12f;
+        private const float ATTACK_RANGE = 1.8f;
+        private const int ATTACK_DAMAGE = 1;
+        private int facing = 1; // 1 = right, -1 = left
+        
         // Stats
         public int Health { get; set; }
         public int MaxHealth { get; set; }
@@ -47,6 +56,7 @@ namespace MetroidvaniaGame
             HasDoubleJump = false;
             HasDash = false;
             HasWallJump = false;
+            facing = 1;
         }
         
         public void MoveLeft()
@@ -54,6 +64,7 @@ namespace MetroidvaniaGame
             if (!isDashing)
             {
                 velocityX = -MOVE_SPEED;
+                facing = -1;
             }
         }
         
@@ -62,6 +73,41 @@ namespace MetroidvaniaGame
             if (!isDashing)
             {
                 velocityX = MOVE_SPEED;
+                facing = 1;
+            }
+        }
+
+        public int Facing => facing;
+        public bool IsAttacking => attackTime > 0;
+
+        public void Attack(Room room)
+        {
+            if (attackCooldown > 0) return;
+
+            // Start attack animation/cooldown
+            attackTime = ATTACK_DURATION;
+            attackCooldown = ATTACK_COOLDOWN;
+
+            // Deal damage to enemies in front of the player within range
+            if (room == null) return;
+
+            var toHit = new System.Collections.Generic.List<Enemy>();
+            foreach (var enemy in room.Enemies)
+            {
+                float dx = enemy.X - X;
+                float dy = enemy.Y - Y;
+                // Only hit enemies roughly in front (same vertical band) and within range
+                if (dx * facing <= 0) continue; // behind the player
+                float distance = (float)System.Math.Sqrt(dx * dx + dy * dy);
+                if (distance <= ATTACK_RANGE && System.Math.Abs(dy) < 1.5f)
+                {
+                    toHit.Add(enemy);
+                }
+            }
+
+            foreach (var e in toHit)
+            {
+                e.TakeDamage(ATTACK_DAMAGE);
             }
         }
         
@@ -94,6 +140,18 @@ namespace MetroidvaniaGame
         
         public void Update(float deltaTime, Room room)
         {
+            // Update attack timers
+            if (attackCooldown > 0)
+            {
+                attackCooldown -= deltaTime;
+                if (attackCooldown < 0) attackCooldown = 0;
+            }
+            if (attackTime > 0)
+            {
+                attackTime -= deltaTime;
+                if (attackTime < 0) attackTime = 0;
+            }
+
             // Handle dash
             if (isDashing)
             {

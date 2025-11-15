@@ -1,0 +1,15 @@
+/workspaces/CSharp-Game_Project/bin/Debug/net6.0/MetroidvaniaGame
+/workspaces/CSharp-Game_Project/bin/Debug/net6.0/MetroidvaniaGame.deps.json
+/workspaces/CSharp-Game_Project/bin/Debug/net6.0/MetroidvaniaGame.runtimeconfig.json
+/workspaces/CSharp-Game_Project/bin/Debug/net6.0/MetroidvaniaGame.dll
+/workspaces/CSharp-Game_Project/bin/Debug/net6.0/MetroidvaniaGame.pdb
+/workspaces/CSharp-Game_Project/obj/Debug/net6.0/MetroidvaniaGame.GeneratedMSBuildEditorConfig.editorconfig
+/workspaces/CSharp-Game_Project/obj/Debug/net6.0/MetroidvaniaGame.AssemblyInfoInputs.cache
+/workspaces/CSharp-Game_Project/obj/Debug/net6.0/MetroidvaniaGame.AssemblyInfo.cs
+/workspaces/CSharp-Game_Project/obj/Debug/net6.0/MetroidvaniaGame.csproj.CoreCompileInputs.cache
+/workspaces/CSharp-Game_Project/obj/Debug/net6.0/MetroidvaniaGame.sourcelink.json
+/workspaces/CSharp-Game_Project/obj/Debug/net6.0/MetroidvaniaGame.dll
+/workspaces/CSharp-Game_Project/obj/Debug/net6.0/refint/MetroidvaniaGame.dll
+/workspaces/CSharp-Game_Project/obj/Debug/net6.0/MetroidvaniaGame.pdb
+/workspaces/CSharp-Game_Project/obj/Debug/net6.0/MetroidvaniaGame.genruntimeconfig.cache
+/workspaces/CSharp-Game_Project/obj/Debug/net6.0/ref/MetroidvaniaGame.dll

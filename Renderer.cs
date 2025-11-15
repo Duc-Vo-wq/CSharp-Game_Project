@@ -86,6 +86,17 @@ namespace MetroidvaniaGame
                 {
                     SetPixel(playerX, playerY, player.GetSprite());
                 }
+
+                    // Draw melee attack indicator if attacking
+                    if (player.IsAttacking)
+                    {
+                        int attackX = playerX + player.Facing;
+                        int attackY = playerY;
+                        if (attackX >= 0 && attackX < bufferWidth && attackY >= 0 && attackY < bufferHeight - 4)
+                        {
+                            SetPixel(attackX, attackY, '*');
+                        }
+                    }
                 
                 // Draw HUD
                 DrawHUD(player, currentRoom);
@@ -203,7 +214,7 @@ namespace MetroidvaniaGame
             }
             
             // Controls reminder
-            string controls = "WASD/Arrows: Move | Space: Jump | Shift: Dash | Q: Quit";
+            string controls = "WASD/Arrows: Move | Space: Jump | Shift: Dash | F: Attack | Q: Quit";
             startX = 2;
             for (int i = 0; i < controls.Length && startX + i < bufferWidth; i++)
             {
