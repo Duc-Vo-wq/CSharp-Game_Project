@@ -27,13 +27,13 @@ namespace MetroidvaniaGame
             // Room 1 - Challenge room
             Room challengeRoom = RoomGenerator.CreateChallengeRoom();
             challengeRoom.LeftRoom = 0;
-            challengeRoom.RightRoom = 3;
+            challengeRoom.RightRoom = 7; // Connect to Turret room
             challengeRoom.UpRoom = 4; // Connect to Flyer room above
             rooms[1] = challengeRoom;
 
             // Room 3 - Boss room
             Room bossRoom = RoomGenerator.CreateBossRoom();
-            bossRoom.LeftRoom = 1;
+            bossRoom.LeftRoom = 7; // Connect to Turret room
             rooms[3] = bossRoom;
 
             // Room 4 - Flyer room (above challenge)
@@ -51,6 +51,12 @@ namespace MetroidvaniaGame
             Room arenaRoom = RoomGenerator.CreateArenaRoom();
             arenaRoom.LeftRoom = 4;
             rooms[6] = arenaRoom;
+
+            // Room 7 - Turret room (between challenge and boss)
+            Room turretRoom = RoomGenerator.CreateTurretRoom();
+            turretRoom.LeftRoom = 1;
+            turretRoom.RightRoom = 3;
+            rooms[7] = turretRoom;
         }
         
         public Room GetCurrentRoom()
@@ -146,6 +152,11 @@ namespace MetroidvaniaGame
                             player.AddProjectileAmmo(5);  // Give 5 projectiles per pickup
                             player.AddScore(30);
                             break;
+                        case CollectibleType.MaxHealthUpgrade:
+                            player.IncreaseMaxHealth(1);  // Increase max health by 1
+                            player.Heal(1);  // Also heal by 1
+                            player.AddScore(100);
+                            break;
                     }
                     
                     toRemove.Add(collectible);
@@ -197,6 +208,22 @@ namespace MetroidvaniaGame
                     {
                         player.TakeDamage(1);
                         enemyProj.IsActive = false;
+                    }
+                }
+
+                // Check collision with turret projectiles
+                foreach (var turretProj in enemy.TurretProjectiles)
+                {
+                    if (!turretProj.IsActive) continue;
+
+                    float pdx = player.X - turretProj.X;
+                    float pdy = player.Y - turretProj.Y;
+                    float pDistance = (float)System.Math.Sqrt(pdx * pdx + pdy * pdy);
+
+                    if (pDistance < 1.0f)
+                    {
+                        player.TakeDamage(1);
+                        turretProj.IsActive = false;
                     }
                 }
 

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MetroidvaniaGame")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+40e43b56bcabea3fbc88679b974cfba11476014e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4af4ac1460e802bb86e9f22ff5103062025705b8")]
 [assembly: System.Reflection.AssemblyProductAttribute("MetroidvaniaGame")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MetroidvaniaGame")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

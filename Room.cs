@@ -484,6 +484,72 @@ namespace MetroidvaniaGame
             room.AddCollectible(new Collectible(20, 18, CollectibleType.ProjectileAmmo));
             room.AddCollectible(new Collectible(40, 18, CollectibleType.ProjectileAmmo));
 
+            // Max Health Upgrade as reward for completing the arena
+            room.AddCollectible(new Collectible(30, 18, CollectibleType.MaxHealthUpgrade));
+
+            return room;
+        }
+
+        public static Room CreateTurretRoom()
+        {
+            Room room = new Room(60, 20);
+
+            // Floor
+            for (int x = 0; x < room.Width; x++)
+            {
+                room.SetTile(x, room.Height - 1, '█');
+            }
+
+            // Walls (with gaps for room transitions)
+            for (int y = 0; y < room.Height; y++)
+            {
+                // Left wall - gap for Challenge room (ground level y=16-18)
+                if (y < 16 || y > 18)
+                    room.SetTile(0, y, '█');
+
+                // Right wall - gap for Boss room (ground level y=16-18)
+                if (y < 16 || y > 18)
+                    room.SetTile(room.Width - 1, y, '█');
+            }
+
+            // Ceiling
+            for (int x = 0; x < room.Width; x++)
+            {
+                room.SetTile(x, 0, '█');
+            }
+
+            // Cover platforms - obstacles to hide behind
+            for (int x = 10; x < 14; x++)
+                room.SetTile(x, 14, '=');
+
+            for (int x = 25; x < 29; x++)
+                room.SetTile(x, 16, '=');
+
+            for (int x = 32; x < 36; x++)
+                room.SetTile(x, 14, '=');
+
+            for (int x = 46; x < 50; x++)
+                room.SetTile(x, 16, '=');
+
+            // Upper platforms for tactical positioning
+            for (int x = 5; x < 12; x++)
+                room.SetTile(x, 10, '=');
+
+            for (int x = 48; x < 55; x++)
+                room.SetTile(x, 10, '=');
+
+            // Add Turret enemies positioned strategically
+            room.AddEnemy(new Enemy(5, 13, EnemyType.Turret));
+            room.AddEnemy(new Enemy(27, 15, EnemyType.Turret));
+            room.AddEnemy(new Enemy(55, 13, EnemyType.Turret));
+            room.AddEnemy(new Enemy(34, 13, EnemyType.Turret));
+
+            // Health and ammo for the gauntlet
+            room.AddCollectible(new Collectible(12, 9, CollectibleType.Health));
+            room.AddCollectible(new Collectible(51, 9, CollectibleType.Health));
+            room.AddCollectible(new Collectible(20, 18, CollectibleType.ProjectileAmmo));
+            room.AddCollectible(new Collectible(40, 18, CollectibleType.ProjectileAmmo));
+
             return room;
         }
     }

@@ -94,6 +94,17 @@ namespace MetroidvaniaGame
                             SetPixel(px, py, proj.GetSprite());
                         }
                     }
+
+                    // Draw turret projectiles
+                    foreach (var proj in enemy.TurretProjectiles)
+                    {
+                        int px = (int)proj.X;
+                        int py = (int)proj.Y;
+                        if (px >= 0 && px < bufferWidth && py >= 0 && py < bufferHeight - 5)
+                        {
+                            SetPixel(px, py, proj.GetSprite());
+                        }
+                    }
                 }
 
                 // Draw projectiles

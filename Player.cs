@@ -302,7 +302,13 @@ namespace MetroidvaniaGame
             Health += amount;
             if (Health > MaxHealth) Health = MaxHealth;
         }
-        
+
+        public void IncreaseMaxHealth(int amount)
+        {
+            MaxHealth += amount;
+            // Don't automatically heal to new max, just increase the cap
+        }
+
         public void AddScore(int points)
         {
             Score += points;

@@ -11,6 +11,7 @@ namespace MetroidvaniaGame
         public EnemyType Type { get; private set; }
         public float LastDamagedTime { get; set; }
         public System.Collections.Generic.List<EnemyProjectile> Projectiles { get; private set; }
+        public System.Collections.Generic.List<TurretProjectile> TurretProjectiles { get; private set; }
 
         private float velocityX;
         private float velocityY;
@@ -26,6 +27,7 @@ namespace MetroidvaniaGame
             Y = y;
             Type = type;
             Projectiles = new System.Collections.Generic.List<EnemyProjectile>();
+            TurretProjectiles = new System.Collections.Generic.List<TurretProjectile>();
             projectileDropTimer = 0f;
 
             switch (type)
@@ -41,6 +43,10 @@ namespace MetroidvaniaGame
                 case EnemyType.Boss:
                     Health = 10;
                     MaxHealth = 10;
+                    break;
+                case EnemyType.Turret:
+                    Health = 2;
+                    MaxHealth = 2;
                     break;
             }
         }
@@ -64,6 +70,9 @@ namespace MetroidvaniaGame
                     break;
                 case EnemyType.Boss:
                     UpdateBoss(deltaTime, room, player);
+                    break;
+                case EnemyType.Turret:
+                    UpdateTurret(deltaTime, room, player);
                     break;
             }
         }
@@ -169,7 +178,57 @@ namespace MetroidvaniaGame
                 Y = newY;
             }
         }
-        
+
+        private void UpdateTurret(float deltaTime, Room room, Player? player)
+        {
+            // Turret is stationary, only shoots projectiles at player
+            if (player != null)
+            {
+                // Shoot projectiles at player periodically
+                projectileDropTimer += deltaTime;
+                if (projectileDropTimer >= 2.5f) // Shoot every 2.5 seconds
+                {
+                    // Calculate direction to player
+                    float dx = player.X - X;
+                    float dy = player.Y - Y;
+                    float distance = (float)Math.Sqrt(dx * dx + dy * dy);
+
+                    // Only shoot if player is in range (within 30 tiles)
+                    if (distance < 30f && distance > 0)
+                    {
+                        // Normalize direction
+                        int dirX = dx > 0 ? 1 : -1;
+                        int dirY = 0; // Shoot horizontally only
+
+                        TurretProjectiles.Add(new TurretProjectile(X, Y, dirX, dirY));
+                        projectileDropTimer = 0f;
+                    }
+                }
+            }
+
+            // Update turret projectiles
+            foreach (var proj in TurretProjectiles)
+            {
+                proj.Update(deltaTime, room);
+            }
+
+            // Remove inactive turret projectiles
+            TurretProjectiles.RemoveAll(p => !p.IsActive);
+
+            // Keep turret on ground (apply gravity)
+            velocityY += GRAVITY * deltaTime;
+            float newY = Y + velocityY * deltaTime;
+            if (room.IsWall((int)X, (int)newY))
+            {
+                Y = (int)Y;
+                velocityY = 0;
+            }
+            else
+            {
+                Y = newY;
+            }
+        }
+
         public char GetSprite()
         {
             switch (Type)
@@ -180,6 +239,8 @@ namespace MetroidvaniaGame
                     return 'F';
                 case EnemyType.Boss:
                     return 'B';
+                case EnemyType.Turret:
+                    return 'T';
                 default:
                     return 'E';
             }
@@ -202,7 +263,8 @@ namespace MetroidvaniaGame
     {
         Walker,
         Flyer,
-        Boss
+        Boss,
+        Turret
     }
     
     public class Collectible
@@ -226,6 +288,8 @@ namespace MetroidvaniaGame
                     return '♥';
                 case CollectibleType.ProjectileAmmo:
                     return '◊';
+                case CollectibleType.MaxHealthUpgrade:
+                    return '+';
                 default:
                     return '?';
             }
@@ -235,7 +299,8 @@ namespace MetroidvaniaGame
     public enum CollectibleType
     {
         Health,
-        ProjectileAmmo
+        ProjectileAmmo,
+        MaxHealthUpgrade
     }
 
     public class Projectile
@@ -319,6 +384,50 @@ namespace MetroidvaniaGame
         public char GetSprite()
         {
             return 'v'; // Downward projectile
+        }
+    }
+
+    public class TurretProjectile
+    {
+        public float X { get; set; }
+        public float Y { get; set; }
+        public float VelocityX { get; set; }
+        public float VelocityY { get; set; }
+        public int DirectionX { get; set; }
+        public int DirectionY { get; set; }
+        public bool IsActive { get; set; }
+        private const float PROJECTILE_SPEED = 18f;
+
+        public TurretProjectile(float x, float y, int directionX, int directionY)
+        {
+            X = x;
+            Y = y;
+            DirectionX = directionX;
+            DirectionY = directionY;
+            VelocityX = PROJECTILE_SPEED * directionX;
+            VelocityY = PROJECTILE_SPEED * directionY;
+            IsActive = true;
+        }
+
+        public void Update(float deltaTime, Room room)
+        {
+            // Move projectile (no gravity - shoots straight like a bullet)
+            X += VelocityX * deltaTime;
+            Y += VelocityY * deltaTime;
+
+            // Deactivate if hit wall or out of bounds
+            if (room.IsWall((int)X, (int)Y) || X < 0 || X >= room.Width || Y < 0 || Y >= room.Height)
+            {
+                IsActive = false;
+            }
+        }
+
+        public char GetSprite()
+        {
+            // Arrow points in direction of travel
+            if (DirectionY < 0) return '^'; // Shooting up
+            if (DirectionY > 0) return 'v'; // Shooting down
+            return DirectionX > 0 ? '>' : '<'; // Shooting horizontally
         }
     }
 }
