@@ -1,342 +1,324 @@
-# Code Architecture Guide
+using System;
 
-Understanding how all the pieces fit together!
+namespace MetroidvaniaGame
+{
+    public class Enemy
+    {
+        public float X { get; set; }
+        public float Y { get; set; }
+        public int Health { get; set; }
+        public int MaxHealth { get; set; }
+        public EnemyType Type { get; private set; }
+        public float LastDamagedTime { get; set; }
+        public System.Collections.Generic.List<EnemyProjectile> Projectiles { get; private set; }
 
-## The Big Picture
+        private float velocityX;
+        private float velocityY;
+        private const float GRAVITY = 25f;
+        private const float MOVE_SPEED = 5f;
+        private int direction = 1;
+        private float actionTimer;
+        private float projectileDropTimer;
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         PROGRAM.CS                          │
-│                    (Starts everything)                      │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│                          GAME.CS                            │
-│                   (The Game Controller)                     │
-│  • Shows menu                                               │
-│  • Runs game loop                                           │
-│  • Handles input                                            │
-│  • Checks game over                                         │
-└──────┬──────────────────┬──────────────────┬───────────────┘
-       │                  │                  │
-       ▼                  ▼                  ▼
-┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│  PLAYER.CS  │  │  WORLD.CS   │  │ RENDERER.CS │
-└─────────────┘  └─────────────┘  └─────────────┘
-       │                  │                  │
-       ▼                  ▼                  ▼
-┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│ • Position  │  │ • Rooms     │  │ • Draws     │
-│ • Movement  │  │ • Map       │  │   screen    │
-│ • Abilities │  │ • Enemies   │  │ • HUD       │
-│ • Health    │  │ • Items     │  │ • Menus     │
-└─────────────┘  └──────┬──────┘  └─────────────┘
-                        │
-           ┌────────────┴────────────┐
-           ▼                         ▼
-    ┌─────────────┐          ┌──────────────┐
-    │   ROOM.CS   │          │ GAMEOBJECTS  │
-    └─────────────┘          │     .CS      │
-           │                 └──────────────┘
-           ▼                         │
-    ┌─────────────┐          ┌──────┴──────┐
-    │ • Tiles     │          │             │
-    │ • Walls     │          ▼             ▼
-    │ • Platforms │    ┌─────────┐  ┌──────────┐
-    │ • Size      │    │ ENEMIES │  │  ITEMS   │
-    └─────────────┘    └─────────┘  └──────────┘
-```
+        public Enemy(float x, float y, EnemyType type)
+        {
+            X = x;
+            Y = y;
+            Type = type;
+            Projectiles = new System.Collections.Generic.List<EnemyProjectile>();
+            projectileDropTimer = 0f;
 
-## How Data Flows
+            switch (type)
+            {
+                case EnemyType.Walker:
+                    Health = 3;
+                    MaxHealth = 3;
+                    break;
+                case EnemyType.Flyer:
+                    Health = 2;
+                    MaxHealth = 2;
+                    break;
+                case EnemyType.Boss:
+                    Health = 10;
+                    MaxHealth = 10;
+                    break;
+            }
+        }
 
-### 1. Game Loop (60 times per second)
-```
-INPUT → UPDATE → RENDER
-  ↓       ↓        ↓
-Keyboard  Move    Draw to
-          Player  Screen
-          Enemies
-          Physics
-```
+        public void Update(float deltaTime, Room room)
+        {
+            Update(deltaTime, room, null);
+        }
 
-### 2. Update Cycle
-```
-1. Read keyboard input
-   └─→ Move player left/right
-   └─→ Make player jump
-   └─→ Trigger dash
+        public void Update(float deltaTime, Room room, Player? player)
+        {
+            actionTimer += deltaTime;
 
-2. Update player physics
-   └─→ Apply gravity
-   └─→ Check collisions with walls
-   └─→ Update position
+            switch (Type)
+            {
+                case EnemyType.Walker:
+                    UpdateWalker(deltaTime, room);
+                    break;
+                case EnemyType.Flyer:
+                    UpdateFlyer(deltaTime, room);
+                    break;
+                case EnemyType.Boss:
+                    UpdateBoss(deltaTime, room, player);
+                    break;
+            }
+        }
+        
+        private void UpdateWalker(float deltaTime, Room room)
+        {
+            // Simple AI: Walk back and forth
+            velocityX = MOVE_SPEED * direction;
+            
+            // Apply gravity
+            velocityY += GRAVITY * deltaTime;
+            
+            // Move horizontally
+            float newX = X + velocityX * deltaTime;
+            
+            // Check for walls or edges
+            if (room.IsWall((int)newX, (int)Y) || !room.IsWall((int)newX, (int)Y + 1))
+            {
+                direction *= -1; // Turn around
+            }
+            else
+            {
+                X = newX;
+            }
+            
+            // Move vertically
+            float newY = Y + velocityY * deltaTime;
+            if (room.IsWall((int)X, (int)newY))
+            {
+                Y = (int)Y;
+                velocityY = 0;
+            }
+            else
+            {
+                Y = newY;
+            }
+        }
+        
+        private void UpdateFlyer(float deltaTime, Room room)
+        {
+            // Flyer moves in a sine wave pattern
+            X += MOVE_SPEED * direction * deltaTime;
+            Y += (float)Math.Sin(actionTimer * 3) * 0.5f;
 
-3. Update world
-   └─→ Move enemies
-   └─→ Check if player touched items
-   └─→ Check room transitions
-   └─→ Check if player hit enemy
+            // Turn around at walls
+            if (room.IsWall((int)X, (int)Y))
+            {
+                direction *= -1;
+            }
 
-4. Check game state
-   └─→ Is player dead? → Game Over
-   └─→ Did player win? → Victory
-```
+            // Drop projectiles periodically
+            projectileDropTimer += deltaTime;
+            if (projectileDropTimer >= 2.0f) // Drop every 2 seconds
+            {
+                Projectiles.Add(new EnemyProjectile(X, Y, 0, 1)); // Drop downward
+                projectileDropTimer = 0f;
+            }
 
-## File Responsibilities
+            // Update projectiles
+            foreach (var proj in Projectiles)
+            {
+                proj.Update(deltaTime, room);
+            }
 
-### Program.cs (10 lines)
-**Job:** Just starts the game
-**What it does:**
-- Creates a new Game
-- Calls Game.Run()
-**That's it!**
+            // Remove inactive projectiles
+            Projectiles.RemoveAll(p => !p.IsActive);
+        }
+        
+        private void UpdateBoss(float deltaTime, Room room, Player? player)
+        {
+            // Boss chases the player aggressively
+            if (player != null)
+            {
+                // Calculate direction to player
+                float dx = player.X - X;
 
-### Game.cs (150 lines)
-**Job:** Controls the entire game flow
-**What it does:**
-- Shows the menu
-- Runs the main game loop
-- Reads keyboard input
-- Calls Update on everything
-- Calls Render to draw
-- Shows game over screen
+                // Move towards player
+                if (Math.Abs(dx) > 1.0f) // Only chase if not too close
+                {
+                    direction = dx > 0 ? 1 : -1;
+                    velocityX = MOVE_SPEED * 0.8f * direction; // Faster than normal boss
 
-**Key Methods:**
-- `Run()` - Starts everything
-- `GameLoop()` - The main loop
-- `HandleInput()` - Reads keyboard
-- `Update()` - Updates game state
-- `Render()` - Draws the screen
+                    float newX = X + velocityX * deltaTime;
 
-### Player.cs (180 lines)
-**Job:** Everything about the player character
-**What it does:**
-- Stores player position (X, Y)
-- Handles movement (left, right)
-- Handles jumping (including double jump)
-- Handles dashing
-- Applies physics (gravity, velocity)
-- Tracks health and score
-- Tracks which abilities are unlocked
+                    // Only move if not hitting a wall
+                    if (!room.IsWall((int)newX, (int)Y))
+                    {
+                        X = newX;
+                    }
+                }
+            }
 
-**Key Properties:**
-- `X, Y` - Where player is
-- `Health` - How much health left
-- `Score` - Player's score
-- `HasDoubleJump, HasDash` - Abilities unlocked
+            // Keep boss on ground
+            velocityY += GRAVITY * deltaTime;
+            float newY = Y + velocityY * deltaTime;
+            if (room.IsWall((int)X, (int)newY))
+            {
+                Y = (int)Y;
+                velocityY = 0;
+            }
+            else
+            {
+                Y = newY;
+            }
+        }
+        
+        public char GetSprite()
+        {
+            switch (Type)
+            {
+                case EnemyType.Walker:
+                    return 'M';
+                case EnemyType.Flyer:
+                    return 'F';
+                case EnemyType.Boss:
+                    return 'B';
+                default:
+                    return 'E';
+            }
+        }
+        
+        public void TakeDamage(int damage)
+        {
+            Health -= damage;
+            LastDamagedTime = actionTimer;
+        }
 
-**Key Methods:**
-- `MoveLeft(), MoveRight()` - Movement
-- `Jump()` - Jumping (and double jump)
-- `Dash()` - Dash ability
-- `Update()` - Physics and collision
-- `TakeDamage()` - When hit by enemy
+        public bool ShouldShowHealth()
+        {
+            // Show health for 3 seconds after being damaged
+            return (actionTimer - LastDamagedTime) < 3.0f;
+        }
+    }
+    
+    public enum EnemyType
+    {
+        Walker,
+        Flyer,
+        Boss
+    }
+    
+    public class Collectible
+    {
+        public float X { get; set; }
+        public float Y { get; set; }
+        public CollectibleType Type { get; private set; }
+        
+        public Collectible(float x, float y, CollectibleType type)
+        {
+            X = x;
+            Y = y;
+            Type = type;
+        }
+        
+        public char GetSprite()
+        {
+            switch (Type)
+            {
+                case CollectibleType.Health:
+                    return '♥';
+                case CollectibleType.ProjectileAmmo:
+                    return '◊';
+                default:
+                    return '?';
+            }
+        }
+    }
+    
+    public enum CollectibleType
+    {
+        Health,
+        ProjectileAmmo
+    }
 
-### World.cs (110 lines)
-**Job:** Manages all the rooms and connections
-**What it does:**
-- Stores all rooms in a dictionary
-- Tracks which room player is in
-- Creates the game map
-- Handles room transitions
-- Manages all collectibles
-- Manages all enemies
+    public class Projectile
+    {
+        public float X { get; set; }
+        public float Y { get; set; }
+        public float VelocityX { get; set; }
+        public float VelocityY { get; set; }
+        public int DirectionX { get; set; }
+        public int DirectionY { get; set; }
+        public bool IsActive { get; set; }
+        private const float PROJECTILE_SPEED = 20f;
 
-**Key Methods:**
-- `CreateWorld()` - Builds the map
-- `GetCurrentRoom()` - Returns current room
-- `CheckRoomTransition()` - Player changing rooms?
-- `CheckCollectibles()` - Player touch item?
-- `UpdateEnemies()` - Move enemies, check hits
+        public Projectile(float x, float y, int directionX, int directionY)
+        {
+            X = x;
+            Y = y;
+            DirectionX = directionX;
+            DirectionY = directionY;
+            VelocityX = PROJECTILE_SPEED * directionX;
+            VelocityY = PROJECTILE_SPEED * directionY;
+            IsActive = true;
+        }
 
-### Room.cs (180 lines)
-**Job:** Represents one room/screen
-**What it does:**
-- Stores the tile layout (walls, platforms)
-- Stores enemies in this room
-- Stores collectibles in this room
-- Checks if a position is a wall
-- Provides room connections (left, right, up, down)
+        public void Update(float deltaTime, Room room)
+        {
+            // Move projectile (no gravity - shoots straight)
+            X += VelocityX * deltaTime;
+            Y += VelocityY * deltaTime;
 
-**Key Properties:**
-- `Tiles[,]` - 2D array of characters
-- `Enemies` - List of enemies
-- `Collectibles` - List of items
-- `LeftRoom, RightRoom` - Connections
+            // Deactivate if hit wall or out of bounds
+            if (room.IsWall((int)X, (int)Y) || X < 0 || X >= room.Width || Y < 0 || Y >= room.Height)
+            {
+                IsActive = false;
+            }
+        }
 
-**Key Methods:**
-- `IsWall()` - Is this tile solid?
-- `GetTile()` - What character is here?
-- `AddEnemy()` - Add an enemy
-- `AddCollectible()` - Add an item
+        public char GetSprite()
+        {
+            if (DirectionY < 0) return '^'; // Shooting up
+            if (DirectionY > 0) return 'v'; // Shooting down
+            return DirectionX > 0 ? '>' : '<'; // Shooting horizontally
+        }
+    }
 
-**RoomGenerator:**
-Static class with methods like:
-- `CreateStartRoom()` - The first room
-- `CreateAbilityRoom()` - Room with abilities
-- `CreateChallengeRoom()` - Harder room
-- `CreateBossRoom()` - Final boss
+    public class EnemyProjectile
+    {
+        public float X { get; set; }
+        public float Y { get; set; }
+        public float VelocityX { get; set; }
+        public float VelocityY { get; set; }
+        public bool IsActive { get; set; }
+        private const float PROJECTILE_SPEED = 15f;
+        private const float GRAVITY = 20f;
 
-### GameObjects.cs (140 lines)
-**Job:** Defines enemies and collectibles
+        public EnemyProjectile(float x, float y, float velX, float velY)
+        {
+            X = x;
+            Y = y;
+            VelocityX = velX * PROJECTILE_SPEED;
+            VelocityY = velY * PROJECTILE_SPEED;
+            IsActive = true;
+        }
 
-**Enemy Class:**
-- Position (X, Y)
-- Health
-- Type (Walker, Flyer, Boss)
-- AI behavior for each type
-- Update() method to move
+        public void Update(float deltaTime, Room room)
+        {
+            // Apply gravity
+            VelocityY += GRAVITY * deltaTime;
 
-**Collectible Class:**
-- Position (X, Y)
-- Type (Health, DoubleJump, Dash, Coin)
-- GetSprite() to show on screen
+            // Move projectile
+            X += VelocityX * deltaTime;
+            Y += VelocityY * deltaTime;
 
-### Renderer.cs (200 lines)
-**Job:** Draws everything to the console
-**What it does:**
-- Creates a buffer (invisible screen)
-- Draws room tiles to buffer
-- Draws enemies to buffer
-- Draws collectibles to buffer
-- Draws player to buffer
-- Draws HUD (health, score, abilities)
-- Only updates changed characters (no flicker!)
-- Shows menus and game over screen
+            // Deactivate if hit wall or out of bounds
+            if (room.IsWall((int)X, (int)Y) || X < 0 || X >= room.Width || Y < 0 || Y >= room.Height)
+            {
+                IsActive = false;
+            }
+        }
 
-**Key Methods:**
-- `Render()` - Main rendering
-- `DrawRoom()` - Draw the level
-- `DrawHUD()` - Draw UI at bottom
-- `DrawMenu()` - Title screen
-- `DrawGameOver()` - End screen
-
-## How Objects Interact
-
-### When Player Moves:
-```
-1. Game.HandleInput() receives key press
-2. Game calls Player.MoveLeft() or Player.MoveRight()
-3. Player.Update() applies physics
-4. Player.Update() checks Room.IsWall()
-5. If no wall, update position
-6. Renderer.Render() draws player at new position
-```
-
-### When Player Collects Item:
-```
-1. Player moves near collectible
-2. Game.Update() calls World.CheckCollectibles()
-3. World checks distance between player and items
-4. If close enough, give player the item
-5. Update player stats (health, abilities, score)
-6. Remove item from room
-7. Renderer shows updated health/abilities
-```
-
-### When Player Changes Room:
-```
-1. Player moves to edge of room
-2. Game.Update() calls World.CheckRoomTransition()
-3. World checks if edge has a connection
-4. Change currentRoomId to new room
-5. Update player position to opposite edge
-6. Renderer draws new room
-```
-
-## Object Ownership
-
-```
-Game owns:
-  ├─ Player (1 instance)
-  ├─ World (1 instance)
-  │   └─ Rooms (4 instances in dictionary)
-  │       ├─ Enemies (list)
-  │       └─ Collectibles (list)
-  └─ Renderer (1 instance)
-```
-
-## Common Operations
-
-### Adding a New Room:
-1. Create room in `RoomGenerator` (Room.cs)
-2. Add to world in `CreateWorld()` (World.cs)
-3. Connect to existing rooms via properties
-
-### Adding a New Enemy:
-1. Add type to `EnemyType` enum (GameObjects.cs)
-2. Add health in Enemy constructor
-3. Add behavior in `Update()` method
-4. Add sprite in `GetSprite()`
-5. Place in room using `room.AddEnemy()`
-
-### Adding a New Ability:
-1. Add bool property to Player (Player.cs)
-2. Add ability type to `CollectibleType` (GameObjects.cs)
-3. Add ability logic in Player methods
-4. Handle collection in `World.CheckCollectibles()`
-5. Display in HUD (Renderer.cs)
-
-## Performance Considerations
-
-**Why the game is smooth:**
-
-1. **Frame rate limiting** (30 FPS)
-   - Prevents running too fast
-   - Consistent timing
-
-2. **Delta time** (elapsed time between frames)
-   - Physics scale with frame rate
-   - Smooth movement on any computer
-
-3. **Optimized rendering**
-   - Only update changed characters
-   - No full screen clearing
-   - Buffer system prevents flicker
-
-4. **Efficient collision**
-   - Check only nearby tiles
-   - Simple distance calculations
-   - No complex physics engine needed
-
-## Memory Layout
-
-```
-Stack (small, fast):
-  └─ Local variables in methods
-  └─ Function parameters
-  └─ Loop counters
-
-Heap (large, slower):
-  └─ Game object
-  └─ Player object
-  └─ World object
-  └─ Room objects
-  └─ Lists of enemies/items
-  └─ 2D arrays for tiles
-```
-
-## Design Patterns Used
-
-**Game Loop Pattern:**
-- Continuous loop: Input → Update → Render
-- Fixed time step (30 FPS)
-
-**State Pattern:**
-- GameState enum (Menu, Playing, GameOver)
-- Different behavior in each state
-
-**Component Pattern:**
-- Separate classes for concerns
-- Player, World, Renderer are independent
-
-**Object Pool Pattern (implicit):**
-- Rooms stored in dictionary
-- Reused when transitioning
-
-**Factory Pattern:**
-- RoomGenerator creates rooms
-- Encapsulates room creation logic
-
-Now you understand the architecture! Happy coding! 🚀
+        public char GetSprite()
+        {
+            return 'v'; // Downward projectile
+        }
+    }
+}

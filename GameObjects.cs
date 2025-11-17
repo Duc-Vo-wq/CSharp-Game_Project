@@ -7,39 +7,53 @@ namespace MetroidvaniaGame
         public float X { get; set; }
         public float Y { get; set; }
         public int Health { get; set; }
+        public int MaxHealth { get; set; }
         public EnemyType Type { get; private set; }
-        
+        public float LastDamagedTime { get; set; }
+        public System.Collections.Generic.List<EnemyProjectile> Projectiles { get; private set; }
+
         private float velocityX;
         private float velocityY;
         private const float GRAVITY = 25f;
         private const float MOVE_SPEED = 5f;
         private int direction = 1;
         private float actionTimer;
-        
+        private float projectileDropTimer;
+
         public Enemy(float x, float y, EnemyType type)
         {
             X = x;
             Y = y;
             Type = type;
-            
+            Projectiles = new System.Collections.Generic.List<EnemyProjectile>();
+            projectileDropTimer = 0f;
+
             switch (type)
             {
                 case EnemyType.Walker:
-                    Health = 1;
+                    Health = 3;
+                    MaxHealth = 3;
                     break;
                 case EnemyType.Flyer:
                     Health = 2;
+                    MaxHealth = 2;
                     break;
                 case EnemyType.Boss:
                     Health = 10;
+                    MaxHealth = 10;
                     break;
             }
         }
-        
+
         public void Update(float deltaTime, Room room)
         {
+            Update(deltaTime, room, null);
+        }
+
+        public void Update(float deltaTime, Room room, Player? player)
+        {
             actionTimer += deltaTime;
-            
+
             switch (Type)
             {
                 case EnemyType.Walker:
@@ -49,7 +63,7 @@ namespace MetroidvaniaGame
                     UpdateFlyer(deltaTime, room);
                     break;
                 case EnemyType.Boss:
-                    UpdateBoss(deltaTime, room);
+                    UpdateBoss(deltaTime, room, player);
                     break;
             }
         }
@@ -93,26 +107,55 @@ namespace MetroidvaniaGame
             // Flyer moves in a sine wave pattern
             X += MOVE_SPEED * direction * deltaTime;
             Y += (float)Math.Sin(actionTimer * 3) * 0.5f;
-            
+
             // Turn around at walls
             if (room.IsWall((int)X, (int)Y))
             {
                 direction *= -1;
             }
+
+            // Drop projectiles periodically
+            projectileDropTimer += deltaTime;
+            if (projectileDropTimer >= 2.0f) // Drop every 2 seconds
+            {
+                Projectiles.Add(new EnemyProjectile(X, Y, 0, 1)); // Drop downward
+                projectileDropTimer = 0f;
+            }
+
+            // Update projectiles
+            foreach (var proj in Projectiles)
+            {
+                proj.Update(deltaTime, room);
+            }
+
+            // Remove inactive projectiles
+            Projectiles.RemoveAll(p => !p.IsActive);
         }
         
-        private void UpdateBoss(float deltaTime, Room room)
+        private void UpdateBoss(float deltaTime, Room room, Player? player)
         {
-            // Boss slowly moves back and forth
-            if (actionTimer > 2.0f)
+            // Boss chases the player aggressively
+            if (player != null)
             {
-                direction *= -1;
-                actionTimer = 0;
+                // Calculate direction to player
+                float dx = player.X - X;
+
+                // Move towards player
+                if (Math.Abs(dx) > 1.0f) // Only chase if not too close
+                {
+                    direction = dx > 0 ? 1 : -1;
+                    velocityX = MOVE_SPEED * 0.8f * direction; // Faster than normal boss
+
+                    float newX = X + velocityX * deltaTime;
+
+                    // Only move if not hitting a wall
+                    if (!room.IsWall((int)newX, (int)Y))
+                    {
+                        X = newX;
+                    }
+                }
             }
-            
-            velocityX = MOVE_SPEED * 0.5f * direction;
-            X += velocityX * deltaTime;
-            
+
             // Keep boss on ground
             velocityY += GRAVITY * deltaTime;
             float newY = Y + velocityY * deltaTime;
@@ -145,6 +188,13 @@ namespace MetroidvaniaGame
         public void TakeDamage(int damage)
         {
             Health -= damage;
+            LastDamagedTime = actionTimer;
+        }
+
+        public bool ShouldShowHealth()
+        {
+            // Show health for 3 seconds after being damaged
+            return (actionTimer - LastDamagedTime) < 3.0f;
         }
     }
     
@@ -174,12 +224,8 @@ namespace MetroidvaniaGame
             {
                 case CollectibleType.Health:
                     return '♥';
-                case CollectibleType.DoubleJump:
-                    return '^';
-                case CollectibleType.Dash:
-                    return '»';
-                case CollectibleType.Coin:
-                    return 'o';
+                case CollectibleType.ProjectileAmmo:
+                    return '◊';
                 default:
                     return '?';
             }
@@ -189,8 +235,90 @@ namespace MetroidvaniaGame
     public enum CollectibleType
     {
         Health,
-        DoubleJump,
-        Dash,
-        Coin
+        ProjectileAmmo
+    }
+
+    public class Projectile
+    {
+        public float X { get; set; }
+        public float Y { get; set; }
+        public float VelocityX { get; set; }
+        public float VelocityY { get; set; }
+        public int DirectionX { get; set; }
+        public int DirectionY { get; set; }
+        public bool IsActive { get; set; }
+        private const float PROJECTILE_SPEED = 20f;
+
+        public Projectile(float x, float y, int directionX, int directionY)
+        {
+            X = x;
+            Y = y;
+            DirectionX = directionX;
+            DirectionY = directionY;
+            VelocityX = PROJECTILE_SPEED * directionX;
+            VelocityY = PROJECTILE_SPEED * directionY;
+            IsActive = true;
+        }
+
+        public void Update(float deltaTime, Room room)
+        {
+            // Move projectile (no gravity - shoots straight)
+            X += VelocityX * deltaTime;
+            Y += VelocityY * deltaTime;
+
+            // Deactivate if hit wall or out of bounds
+            if (room.IsWall((int)X, (int)Y) || X < 0 || X >= room.Width || Y < 0 || Y >= room.Height)
+            {
+                IsActive = false;
+            }
+        }
+
+        public char GetSprite()
+        {
+            if (DirectionY < 0) return '^'; // Shooting up
+            if (DirectionY > 0) return 'v'; // Shooting down
+            return DirectionX > 0 ? '>' : '<'; // Shooting horizontally
+        }
+    }
+
+    public class EnemyProjectile
+    {
+        public float X { get; set; }
+        public float Y { get; set; }
+        public float VelocityX { get; set; }
+        public float VelocityY { get; set; }
+        public bool IsActive { get; set; }
+        private const float PROJECTILE_SPEED = 15f;
+        private const float GRAVITY = 20f;
+
+        public EnemyProjectile(float x, float y, float velX, float velY)
+        {
+            X = x;
+            Y = y;
+            VelocityX = velX * PROJECTILE_SPEED;
+            VelocityY = velY * PROJECTILE_SPEED;
+            IsActive = true;
+        }
+
+        public void Update(float deltaTime, Room room)
+        {
+            // Apply gravity
+            VelocityY += GRAVITY * deltaTime;
+
+            // Move projectile
+            X += VelocityX * deltaTime;
+            Y += VelocityY * deltaTime;
+
+            // Deactivate if hit wall or out of bounds
+            if (room.IsWall((int)X, (int)Y) || X < 0 || X >= room.Width || Y < 0 || Y >= room.Height)
+            {
+                IsActive = false;
+            }
+        }
+
+        public char GetSprite()
+        {
+            return 'v'; // Downward projectile
+        }
     }
 }

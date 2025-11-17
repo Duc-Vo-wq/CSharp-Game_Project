@@ -9,17 +9,34 @@ namespace MetroidvaniaGame
     {
         private const int TARGET_FPS = 30;
         private const int FRAME_TIME_MS = 1000 / TARGET_FPS;
-        
+
         private Player? player;
         private World? world;
         private Renderer renderer;
         private bool isRunning;
         private GameState state;
+
+        // Track key states for responsive movement
+        private Dictionary<ConsoleKey, long> keyPressTime = new Dictionary<ConsoleKey, long>();
+        private const long MOVEMENT_KEY_THRESHOLD_MS = 150; // Shorter for movement keys to reduce tap distance
+        private const long ACTION_KEY_THRESHOLD_MS = 500; // Longer for jump/aim to handle keyboard repeat delay
         
         public Game()
         {
             state = GameState.Menu;
             renderer = new Renderer();
+        }
+
+        private long GetKeyThreshold(ConsoleKey key)
+        {
+            // Movement keys use shorter threshold to prevent excessive tap movement
+            if (key == ConsoleKey.A || key == ConsoleKey.D ||
+                key == ConsoleKey.LeftArrow || key == ConsoleKey.RightArrow)
+            {
+                return MOVEMENT_KEY_THRESHOLD_MS;
+            }
+            // Jump and aim keys use longer threshold for better hold detection
+            return ACTION_KEY_THRESHOLD_MS;
         }
         
         public async Task Run()
@@ -71,17 +88,17 @@ namespace MetroidvaniaGame
             {
                 long currentTime = sw.ElapsedMilliseconds;
                 long deltaTime = currentTime - lastFrameTime;
-                
+
                 if (deltaTime >= FRAME_TIME_MS)
                 {
                     lastFrameTime = currentTime;
-                    
+
                     // Handle input
                     HandleInput();
-                    
+
                     // Update game state
                     Update(deltaTime / 1000.0f);
-                    
+
                     // Render
                     Render();
                 }
@@ -91,72 +108,140 @@ namespace MetroidvaniaGame
                     await Task.Delay(1);
                 }
             }
-            
-            ShowGameOver();
+
+            // Show appropriate end screen
+            if (state == GameState.Victory)
+            {
+                ShowVictory();
+            }
+            else
+            {
+                ShowGameOver();
+            }
         }
         
         private void HandleInput()
         {
             if (player == null) return;
-            
+
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+            // Read all available key events and update their press times
             while (Console.KeyAvailable)
             {
-                var key = Console.ReadKey(true).Key;
-                
-                switch (key)
+                var keyInfo = Console.ReadKey(true);
+                var key = keyInfo.Key;
+
+                bool isNewPress = !keyPressTime.ContainsKey(key) ||
+                                 (currentTime - keyPressTime[key]) > GetKeyThreshold(key);
+
+                keyPressTime[key] = currentTime;
+
+                // Handle one-time actions (only on new press, not repeats)
+                if (isNewPress)
                 {
-                    case ConsoleKey.LeftArrow:
-                    case ConsoleKey.A:
-                        player.MoveLeft();
-                        break;
-                    case ConsoleKey.RightArrow:
-                    case ConsoleKey.D:
-                        player.MoveRight();
-                        break;
-                    case ConsoleKey.Spacebar:
-                    case ConsoleKey.W:
-                    case ConsoleKey.UpArrow:
-                        player.Jump();
-                        break;
-                    case ConsoleKey.F:
-                    case ConsoleKey.K:
-                        // Short range melee attack
-                        if (world != null)
-                            player.Attack(world.GetCurrentRoom());
-                        break;
-                    case ConsoleKey.E:
-                        player.Dash();
-                        break;
-                    case ConsoleKey.R:
-                        if (state == GameState.GameOver)
-                        {
-                            StartGame();
-                        }
-                        break;
-                    case ConsoleKey.Escape:
-                    case ConsoleKey.Q:
-                        isRunning = false;
-                        break;
+                    switch (key)
+                    {
+                        case ConsoleKey.Spacebar:
+                        case ConsoleKey.UpArrow:
+                            player.StartJump();
+                            break;
+                        case ConsoleKey.F:
+                        case ConsoleKey.K:
+                            if (world != null)
+                                player.Attack(world.GetCurrentRoom());
+                            break;
+                        case ConsoleKey.G:
+                        case ConsoleKey.L:
+                            player.ShootProjectile();
+                            break;
+                        case ConsoleKey.R:
+                            if (state == GameState.GameOver)
+                            {
+                                StartGame();
+                            }
+                            break;
+                        case ConsoleKey.Escape:
+                        case ConsoleKey.Q:
+                            isRunning = false;
+                            break;
+                    }
                 }
+            }
+
+            // Check which keys are currently "held" (seen recently)
+            var expiredKeys = new List<ConsoleKey>();
+            foreach (var kvp in keyPressTime)
+            {
+                if (currentTime - kvp.Value > GetKeyThreshold(kvp.Key))
+                {
+                    expiredKeys.Add(kvp.Key);
+                }
+            }
+
+            // Remove expired keys
+            foreach (var key in expiredKeys)
+            {
+                keyPressTime.Remove(key);
+            }
+
+            // Update continuous movement states based on held keys
+            bool movingLeft = keyPressTime.ContainsKey(ConsoleKey.LeftArrow) || keyPressTime.ContainsKey(ConsoleKey.A);
+            bool movingRight = keyPressTime.ContainsKey(ConsoleKey.RightArrow) || keyPressTime.ContainsKey(ConsoleKey.D);
+            bool jumping = keyPressTime.ContainsKey(ConsoleKey.Spacebar) ||
+                          keyPressTime.ContainsKey(ConsoleKey.UpArrow);
+            bool aimingUp = keyPressTime.ContainsKey(ConsoleKey.W) || keyPressTime.ContainsKey(ConsoleKey.I);
+
+            // Update player movement states
+            if (movingLeft)
+                player.StartMoveLeft();
+            else
+                player.StopMoveLeft();
+
+            if (movingRight)
+                player.StartMoveRight();
+            else
+                player.StopMoveRight();
+
+            // Handle aiming up
+            if (aimingUp)
+                player.StartAimUp();
+            else
+                player.StopAimUp();
+
+            // Handle jump release for variable jump height
+            if (!jumping)
+            {
+                player.StopJump();
             }
         }
         
         private void Update(float deltaTime)
         {
             if (state != GameState.Playing || player == null || world == null) return;
-            
+
             // Update player physics
             player.Update(deltaTime, world.GetCurrentRoom());
-            
+
+            // Update world (room transition cooldown)
+            world.Update(deltaTime);
+
             // Check for room transitions
             world.CheckRoomTransition(player);
-            
+
             // Check for collectibles
             world.CheckCollectibles(player);
-            
-            // Update enemies
-            world.UpdateEnemies(deltaTime, player);
-            
+
+            // Update enemies and check for boss defeat
+            bool bossDefeated = world.UpdateEnemies(deltaTime, player);
+
+            // Check if boss was defeated
+            if (bossDefeated)
+            {
+                state = GameState.Victory;
+                isRunning = false;
+            }
+
             // Check if player died
             if (player.Health <= 0)
             {
@@ -173,6 +258,35 @@ namespace MetroidvaniaGame
             }
         }
         
+        private void ShowVictory()
+        {
+            Console.Clear();
+            if (player != null)
+            {
+                renderer.DrawVictory(player);
+            }
+
+            // Wait for restart or quit
+            while (true)
+            {
+                if (Console.KeyAvailable)
+                {
+                    var key = Console.ReadKey(true).Key;
+                    if (key == ConsoleKey.R)
+                    {
+                        state = GameState.Menu;
+                        ShowMenu();
+                        Run().Wait();
+                        return;
+                    }
+                    else if (key == ConsoleKey.Q || key == ConsoleKey.Escape)
+                    {
+                        return;
+                    }
+                }
+            }
+        }
+
         private void ShowGameOver()
         {
             Console.Clear();
@@ -180,7 +294,7 @@ namespace MetroidvaniaGame
             {
                 renderer.DrawGameOver(player);
             }
-            
+
             // Wait for restart or quit
             while (true)
             {
@@ -208,6 +322,7 @@ namespace MetroidvaniaGame
         Menu,
         Playing,
         Paused,
-        GameOver
+        GameOver,
+        Victory
     }
 }
